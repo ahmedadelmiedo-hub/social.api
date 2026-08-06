@@ -10,7 +10,6 @@ import java.nio.ByteBuffer
 
 object MediaGenerator {
 
-    // الدالة اللي بينده عليها الـ ViewModel بتاعك
     fun generateSceneBasedH264VideoWithAudio(
         context: Context,
         topicTitle: String,
@@ -21,36 +20,24 @@ object MediaGenerator {
         secondsPerImage: Int = 3
     ) {
         try {
-            // 1- اعمل فيديو مؤقت من الصور بس (H.264)
             val tempVideo = File(context.cacheDir, "temp_video_only_${System.currentTimeMillis()}.mp4")
             createVideoFromImages(sceneImages.filterNotNull(), tempVideo, secondsPerImage)
 
             if (audioFile != null && audioFile.exists() && audioFile.length() > 1024) {
-                // 2- حول mp3 بتاع Fish لـ AAC في ملف mp4 مؤقت
                 val tempAacMp4 = File(context.cacheDir, "temp_aac_${System.currentTimeMillis()}.mp4")
                 transcodeMp3ToAacMp4(audioFile, tempAacMp4)
-
-                // 3- ادمج الفيديو + الصوت في final.mp4
                 muxVideoAndAudio(tempVideo, tempAacMp4, outputFile)
-
                 tempVideo.delete()
                 tempAacMp4.delete()
             } else {
-                // مفيش صوت، احفظ الفيديو بس
                 tempVideo.copyTo(outputFile, overwrite = true)
                 tempVideo.delete()
             }
         } catch (e: Exception) {
             android.util.Log.e("MediaGenerator", "Video generation failed: ${e.message}", e)
-            // fallback: لو فشل، انسخ اي فيديو مؤقت موجود
-            try {
-                val fallback = File(context.cacheDir, "temp_video_only_${System.currentTimeMillis()}.mp4")
-                if (fallback.exists()) fallback.copyTo(outputFile, overwrite = true)
-            } catch (_: Exception) {}
         }
     }
 
-    // نفس الدالة القديمة للتوافق
     fun generateH264Mp4Video(context: Context, topic: String, outputFile: File, durationSeconds: Int = 5) {
         val dummyBitmap = Bitmap.createBitmap(720, 1280, Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(dummyBitmap)
@@ -74,32 +61,26 @@ object MediaGenerator {
         val height = 1280
         val fps = 30
         val bitrate = 2000000
-
         val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
         }
-
         val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         encoder.start()
-
         var muxer: MediaMuxer? = null
         var trackIndex = -1
         var muxerStarted = false
         val bufferInfo = MediaCodec.BufferInfo()
-
         var frameIndex = 0
         var bitmapIndex = 0
         val framesPerImage = if (bitmaps.isNotEmpty()) totalFrames / bitmaps.size else totalFrames
-
         while (frameIndex < totalFrames) {
             val currentBitmap = bitmaps[bitmapIndex % bitmaps.size]
             val scaled = Bitmap.createScaledBitmap(currentBitmap, width, height, true)
             val yuv = getNV21(width, height, scaled)
-
             val inputBufIndex = encoder.dequeueInputBuffer(10000)
             if (inputBufIndex >= 0) {
                 val inputBuf = encoder.getInputBuffer(inputBufIndex)!!
@@ -109,7 +90,6 @@ object MediaGenerator {
                 frameIndex++
                 if (frameIndex % framesPerImage == 0) bitmapIndex++
             }
-
             var outIndex = encoder.dequeueOutputBuffer(bufferInfo, 10000)
             while (outIndex >= 0) {
                 if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) {
@@ -125,8 +105,6 @@ object MediaGenerator {
                 outIndex = encoder.dequeueOutputBuffer(bufferInfo, 0)
             }
         }
-
-        // EOS
         val inIndex = encoder.dequeueInputBuffer(10000)
         if (inIndex >= 0) encoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
         var outIndex = encoder.dequeueOutputBuffer(bufferInfo, 10000)
@@ -138,12 +116,10 @@ object MediaGenerator {
             encoder.releaseOutputBuffer(outIndex, false)
             outIndex = encoder.dequeueOutputBuffer(bufferInfo, 0)
         }
-
         encoder.stop(); encoder.release()
         try { muxer?.stop(); muxer?.release() } catch (_: Exception) {}
     }
 
-    // تحويل mp3 (من Fish) إلى AAC داخل mp4
     private fun transcodeMp3ToAacMp4(mp3File: File, outFile: File) {
         val extractor = MediaExtractor()
         extractor.setDataSource(mp3File.absolutePath)
@@ -152,11 +128,9 @@ object MediaGenerator {
         }
         extractor.selectTrack(audioTrack)
         val inputFormat = extractor.getTrackFormat(audioTrack)
-
         val decoder = MediaCodec.createDecoderByType(inputFormat.getString(MediaFormat.KEY_MIME)!!)
         decoder.configure(inputFormat, null, null, 0)
         decoder.start()
-
         val encoderFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 44100, 2).apply {
             setInteger(MediaFormat.KEY_BIT_RATE, 128000)
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
@@ -165,7 +139,6 @@ object MediaGenerator {
         val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
         encoder.configure(encoderFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         encoder.start()
-
         val muxer = MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         var muxTrack = -1
         var muxerStarted = false
@@ -174,7 +147,6 @@ object MediaGenerator {
         var extractorDone = false
         var decoderDone = false
         var encoderDone = false
-
         while (!encoderDone) {
             if (!extractorDone) {
                 val inIndex = decoder.dequeueInputBuffer(10000)
@@ -190,12 +162,10 @@ object MediaGenerator {
                     }
                 }
             }
-
             var decOutIndex = decoder.dequeueOutputBuffer(decoderBufferInfo, 10000)
             while (decOutIndex >= 0) {
                 val decodedData = decoder.getOutputBuffer(decOutIndex)
                 if (decoderBufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) decoderDone = true
-
                 if (decodedData != null && decoderBufferInfo.size > 0 && !decoderDone) {
                     val encInIndex = encoder.dequeueInputBuffer(10000)
                     if (encInIndex >= 0) {
@@ -212,17 +182,16 @@ object MediaGenerator {
                 if (decoderDone) break
                 decOutIndex = decoder.dequeueOutputBuffer(decoderBufferInfo, 0)
             }
-
             val encOutIndex = encoder.dequeueOutputBuffer(bufferInfo, 10000)
             if (encOutIndex >= 0) {
                 val encoded = encoder.getOutputBuffer(encOutIndex)!!
                 if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
-                    // skip codec config
                 } else {
                     if (!muxerStarted) {
                         muxTrack = muxer.addTrack(encoder.outputFormat)
                         muxer.start()
                         muxerStarted = true
+                        android.util.Log.d("MediaGenerator", "Audio track added")
                     }
                     if (bufferInfo.size > 0) muxer.writeSampleData(muxTrack, encoded, bufferInfo)
                     if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) encoderDone = true
@@ -230,7 +199,6 @@ object MediaGenerator {
                 encoder.releaseOutputBuffer(encOutIndex, false)
             }
         }
-
         try { decoder.stop(); decoder.release() } catch (_: Exception) {}
         try { encoder.stop(); encoder.release() } catch (_: Exception) {}
         try { extractor.release() } catch (_: Exception) {}
@@ -240,22 +208,16 @@ object MediaGenerator {
     private fun muxVideoAndAudio(videoFile: File, audioFile: File, outFile: File) {
         val vExtractor = MediaExtractor().apply { setDataSource(videoFile.absolutePath) }
         val aExtractor = MediaExtractor().apply { setDataSource(audioFile.absolutePath) }
-
         val vTrack = (0 until vExtractor.trackCount).first { vExtractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true }
         val aTrack = (0 until aExtractor.trackCount).first { aExtractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
-
         vExtractor.selectTrack(vTrack)
         aExtractor.selectTrack(aTrack)
-
         val muxer = MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         val vMuxTrack = muxer.addTrack(vExtractor.getTrackFormat(vTrack))
         val aMuxTrack = muxer.addTrack(aExtractor.getTrackFormat(aTrack))
         muxer.start()
-
         val buffer = ByteBuffer.allocate(1024 * 1024)
         val bufferInfo = MediaCodec.BufferInfo()
-
-        // copy video
         while (true) {
             val sampleSize = vExtractor.readSampleData(buffer, 0)
             if (sampleSize < 0) break
@@ -263,7 +225,6 @@ object MediaGenerator {
             muxer.writeSampleData(vMuxTrack, buffer, bufferInfo)
             vExtractor.advance()
         }
-        // copy audio
         while (true) {
             val sampleSize = aExtractor.readSampleData(buffer, 0)
             if (sampleSize < 0) break
@@ -271,7 +232,6 @@ object MediaGenerator {
             muxer.writeSampleData(aMuxTrack, buffer, bufferInfo)
             aExtractor.advance()
         }
-
         vExtractor.release(); aExtractor.release()
         muxer.stop(); muxer.release()
     }
