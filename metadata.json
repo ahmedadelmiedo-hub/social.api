@@ -1,0 +1,6 @@
+{
+  "name": "AlMalaf 71 YouTube Studio",
+  "description": "Multi-agent system for YouTube channel AlMalaf 71: Trend Hunter, Scriptwriter, Hook Reviewer, Video Editor & SEO Uploader.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
