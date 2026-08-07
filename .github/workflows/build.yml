@@ -15,17 +15,21 @@ jobs:
           java-version: '17'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-      - name: Setup Gradle
+      - name: Setup Gradle 8.10.2
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.10.2
+          cache-disabled: true
       - name: Build Debug APK
         run: |
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
-            ./gradlew assembleDebug --stacktrace
+            ./gradlew assembleDebug
           else
-            gradle assembleDebug --stacktrace
+            gradle assembleDebug
           fi
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AlMalaf71-APK
