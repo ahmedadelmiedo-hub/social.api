@@ -1,5 +1,4 @@
 name: Automated Social Content & Build
-
 on:
   push:
     branches: [ "main", "master" ]
@@ -7,48 +6,50 @@ on:
   # التشغيل الآلي 4 مرات يومياً (كل 6 ساعات)
   schedule:
     - cron: '0 */6 * * *'
-
 jobs:
   run-task:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
           cache: 'gradle'
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: true
-
       - name: Accept Android SDK Licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-
       - name: Make gradlew executable
         run: chmod +x ./gradlew
-
+      # توليد ملف debug.keystore لأن السيرفر بيبدأ من صفر كل مرة ومفيهوش الملف ده
+      - name: Generate debug keystore
+        run: |
+          keytool -genkey -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
       # خطوة تنفيذ سكربت جلب وإعداد المحتوى أو الأداة الخاصة بك
       - name: Run Content & Build Script
         run: |
           echo "Starting automated task..."
           # ضع هنا أمر تشغيل السكربت الخاص بالمحتوى الخاص بك (مثل: node index.js أو python script.py)
           ./gradlew assembleDebug --stacktrace
-
       - name: Upload Output Artifact
         uses: actions/upload-artifact@v4
         with:
