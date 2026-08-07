@@ -15,33 +15,25 @@ jobs:
           java-version: '17'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-      - name: Create debug keystore and dummy google-services.json
+      - name: Fix missing files for CI
         run: |
+          # 1. create debug.keystore
           if [ ! -f debug.keystore ]; then
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, S=Debug, C=US"
           fi
           cp debug.keystore app/debug.keystore 2>/dev/null || true
+          # 2. create dummy google-services.json with correct package
           cat > app/google-services.json <<'JSON'
           {
-            "project_info": {
-              "project_number": "123456789",
-              "project_id": "almalaf71-dummy",
-              "firebase_url": "https://dummy.firebaseio.com",
-              "storage_bucket": "dummy.appspot.com"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:123456789:android:dummyid",
-                  "android_client_info": {
-                    "package_name": "com.aistudio.almalaf71.ytstudio"
-                  }
-                },
-                "oauth_client": [],
-                "api_key": [{ "current_key": "dummy_api_key" }],
-                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
-              }
-            ],
+            "project_info": {"project_number": "123","project_id": "almalaf71-dummy"},
+            "client": [{
+              "client_info": {
+                "mobilesdk_app_id": "1:123:android:dummy",
+                "android_client_info": {"package_name": "com.aistudio.almalaf71.ytstudio"}
+              },
+              "oauth_client": [],
+              "api_key": [{"current_key": "dummy"}]
+            }],
             "configuration_version": "1"
           }
           JSON
