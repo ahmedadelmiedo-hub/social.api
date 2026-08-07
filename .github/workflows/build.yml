@@ -1,19 +1,25 @@
-name: Build Android APK
+name: Automated Social Content & Build
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
+  # التشغيل الآلي 4 مرات يومياً (كل 6 ساعات)
+  schedule:
+    - cron: '0 */6 * * *'
 
 jobs:
-  build:
+  run-task:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -36,11 +42,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      # خطوة تنفيذ سكربت جلب وإعداد المحتوى أو الأداة الخاصة بك
+      - name: Run Content & Build Script
+        run: |
+          echo "Starting automated task..."
+          # ضع هنا أمر تشغيل السكربت الخاص بالمحتوى الخاص بك (مثل: node index.js أو python script.py)
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK Artifact
+      - name: Upload Output Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: App-Debug-APK
+          name: Content-App-Build-${{ github.run_number }}
           path: app/build/outputs/apk/debug/app-debug.apk
