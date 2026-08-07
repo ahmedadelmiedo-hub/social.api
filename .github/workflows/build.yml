@@ -15,6 +15,15 @@ jobs:
           java-version: '17'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+      - name: Create debug keystore and dummy google-services.json
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, S=Debug, C=US"
+          fi
+          cp debug.keystore app/debug.keystore 2>/dev/null || true
+          if [ ! -f app/google-services.json ]; then
+            echo '{"project_info":{"project_number":"123456789","project_id":"dummy-project"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789:android:dummy","android_client_info":{"package_name":"com.example.socialpersonaai"}},"oauth_client":[],"api_key":[{"current_key":"dummy_key"}]}]}' > app/google-services.json
+          fi
       - name: Setup Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v3
         with:
