@@ -1,58 +1,46 @@
-name: Build APK
+name: Build Android APK
+
 on:
   push:
-    branches: [ main ]
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: 'zulu'
           java-version: '17'
+          cache: 'gradle'
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-      - name: Fix missing files for CI
-        run: |
-          # 1. create debug.keystore
-          if [ ! -f debug.keystore ]; then
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, S=Debug, C=US"
-          fi
-          cp debug.keystore app/debug.keystore 2>/dev/null || true
-          # 2. create dummy google-services.json with correct package
-          cat > app/google-services.json <<'JSON'
-          {
-            "project_info": {"project_number": "123","project_id": "almalaf71-dummy"},
-            "client": [{
-              "client_info": {
-                "mobilesdk_app_id": "1:123:android:dummy",
-                "android_client_info": {"package_name": "com.aistudio.almalaf71.ytstudio"}
-              },
-              "oauth_client": [],
-              "api_key": [{"current_key": "dummy"}]
-            }],
-            "configuration_version": "1"
-          }
-          JSON
-      - name: Setup Gradle 9.3.1
-        uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: 9.3.1
-          cache-disabled: true
+          accept-android-sdk-licenses: true
+
+      - name: Accept Android SDK Licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Build Debug APK
-        run: |
-          if [ -f ./gradlew ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug
-          else
-            gradle assembleDebug
-          fi
-      - name: Upload APK
-        if: success()
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AlMalaf71-APK
+          name: App-Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
