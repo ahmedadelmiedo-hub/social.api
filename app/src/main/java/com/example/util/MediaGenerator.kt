@@ -62,7 +62,7 @@ object MediaGenerator {
         val fps = 30
         val bitrate = 2000000
         val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
-            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
+            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
@@ -80,7 +80,7 @@ object MediaGenerator {
         while (frameIndex < totalFrames) {
             val currentBitmap = bitmaps[bitmapIndex % bitmaps.size]
             val scaled = Bitmap.createScaledBitmap(currentBitmap, width, height, true)
-            val yuv = getNV21(width, height, scaled)
+            val yuv = getNV12(width, height, scaled)
             val inputBufIndex = encoder.dequeueInputBuffer(10000)
             if (inputBufIndex >= 0) {
                 val inputBuf = encoder.getInputBuffer(inputBufIndex)!!
@@ -244,7 +244,7 @@ object MediaGenerator {
         muxer.stop(); muxer.release()
     }
 
-    private fun getNV21(inputWidth: Int, inputHeight: Int, scaled: Bitmap): ByteArray {
+    private fun getNV12(inputWidth: Int, inputHeight: Int, scaled: Bitmap): ByteArray {
         val argb = IntArray(inputWidth * inputHeight)
         scaled.getPixels(argb, 0, inputWidth, 0, 0, inputWidth, inputHeight)
         val yuv = ByteArray(inputWidth * inputHeight * 3 / 2)
@@ -261,8 +261,8 @@ object MediaGenerator {
                 val v = ((112 * r - 94 * g - 18 * b + 128) shr 8) + 128
                 yuv[yIndex++] = y.coerceIn(0, 255).toByte()
                 if (j % 2 == 0 && i % 2 == 0) {
-                    yuv[uvIndex++] = v.coerceIn(0, 255).toByte()
                     yuv[uvIndex++] = u.coerceIn(0, 255).toByte()
+                    yuv[uvIndex++] = v.coerceIn(0, 255).toByte()
                 }
             }
         }
