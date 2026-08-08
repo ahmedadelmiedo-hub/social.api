@@ -45,6 +45,10 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
       # خطوة تنفيذ سكربت جلب وإعداد المحتوى أو الأداة الخاصة بك
+      - name: Create .env file from Secrets
+        run: |
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "FISH_API_KEY=${{ secrets.FISH_API_KEY }}" >> .env
       - name: Run Content & Build Script
         run: |
           echo "Starting automated task..."
